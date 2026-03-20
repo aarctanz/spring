@@ -4,6 +4,7 @@ import { elysiaLogger } from "@logtape/elysia";
 import { setupLogger, logger } from "./lib/logger";
 import { connect, client } from "./db";
 import { authPlugin } from "./auth";
+import { cors } from "./middleware/cors";
 
 await setupLogger();
 
@@ -38,6 +39,7 @@ const app = new Elysia()
       }),
     })
   )
+  .use(cors)
   .use(authPlugin)
   .get("/", () => "Hello Elysia")
   .listen(3000);
