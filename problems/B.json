@@ -1,0 +1,52 @@
+{
+  "name": "168_A. Wizards and Demonstration",
+  "description": "Some country is populated by wizards. They want to organize a demonstration.\n\nThere are `n` people living in the city, `x` of them are the wizards who will surely go to the demonstration. Other city people (`n - x` people) do not support the wizards and aren't going to go to the demonstration. The city administration will react only to the demonstration involving at least `y` percent of the city people.\n\nThe wizards decided to create clone puppets which can substitute the city people on the demonstration. The city administration cannot tell the difference between a puppet and a person, so they will consider the city to be consisting of only `n` people.\n\nHelp the wizards and find the minimum number of clones to create so that the demonstration has no less than `y` percent of the city people.\n\n## Input\n\nThe first line contains a single integer `t` (1 ≤ t ≤ 100) — the number of test cases.\n\nEach test case contains a single line with three space-separated integers `n`, `x`, `y` (1 ≤ n, x, y ≤ 10⁴, x ≤ n) — the number of citizens in the city, the number of wizards and the percentage the administration needs.\n\n> **Note:** `y` can exceed 100 percent, meaning the administration wants to see more people at the demonstration than actually live in the city (> n).\n\n## Output\n\nFor each test case, print a single integer — the minimum number of clones to create, so that the demonstration involved no less than `y` percent of `n`.\n\n## Examples\n\n**Input:**\n```\n3\n10 1 14\n20 10 50\n1000 352 146\n```\n\n**Output:**\n```\n1\n0\n1108\n```\n\n## Note\n\nIn the first sample it is necessary that at least 14% of 10 people came to the demonstration. As the number of people should be integer, then at least two people should come. There is only one wizard living in the city and he is going to come. That isn't enough, so he needs to create one clone.\n\nIn the second sample 10 people should come to the demonstration. The city has 10 wizards. They will all come to the demonstration, so nobody has to create any clones.",
+  "cf_rating": 900,
+  "cf_tags": [
+    "implementation",
+    "math"
+  ],
+  "difficulty": 7,
+  "public_tests": {
+    "input": [
+      "3\n1000 352 146\n10 1 14\n20 10 50\n"
+    ],
+    "output": [
+      "1108\n1\n0\n"
+    ]
+  },
+  "private_tests": {
+    "input": [
+      "12\n7879 2590 2818\n78 28 27\n9178 2255 7996\n6571 6449 8965\n6151 6148 3746\n6487 5670 8\n4890 1112 5\n4909 2111 8860\n10000 10000 10000\n78 55 96\n3271 5 50\n1 1 10000\n",
+      "12\n8484 6400 547\n10000 10000 1\n9678 6173 5658\n8403 7401 4769\n10000 1 10000\n7261 5328 10\n2379 1436 9663\n11 9 60\n71 49 65\n3871 3795 7\n10000 1 1\n54 4 38\n",
+      "12\n78 73 58\n3 1 69\n1 1 1\n8890 5449 8734\n7835 6710 1639\n4470 2543 6\n68 65 20\n7878 4534 9159\n67 1 3\n70 38 66\n1138 570 6666\n2765 768 9020\n",
+      "12\n3478 1728 9727\n7754 204 9038\n9620 6557 6\n13372 2590 2818\n78 28 44\n9178 2255 2041\n6571 10325 8965\n6151 6148 1348\n12786 5670 8\n1879 2111 8860\n3271 0 50\n1 1 10001\n",
+      "12\n15152 6400 547\n13765 6173 5658\n16485 7401 4769\n10000 2 10000\n2379 1436 8446\n98 49 65\n10000 2 1\n63 4 38\n78 17 58\n2 1 69\n6874 6710 1639\n7878 6286 9159\n",
+      "12\n70 0 66\n1138 113 6666\n2765 768 5875\n3478 1728 16162\n1000 152 146\n22247 2590 2818\n78 28 45\n9178 2255 218\n1829 10325 8965\n6151 11631 1348\n1879 2307 8860\n5324 0 50\n",
+      "12\n1 2 10001\n15152 6400 973\n13765 43 5658\n16485 10573 4769\n2379 1436 5829\n186 49 65\n92 4 38\n6874 6710 2202\n8743 6286 9159\n67 2 6\n70 0 132\n1138 113 227\n",
+      "12\n3478 1728 7736\n13 1 18\n64 10 50\n3142 2590 2818\n9178 2255 137\n1829 10325 17617\n8925 11631 1348\n7390 353 5\n1879 3729 8860\n5324 -1 50\n4602 6400 973\n13765 43 4295\n",
+      "12\n12248 10573 4769\n2379 1436 1855\n186 16 65\n139 4 38\n78 7 23\n6874 4227 2202\n67 2 9\n6454 1112 5\n78 92 96\n10000 11000 1\n7261 6980 10\n11 14 60\n",
+      "12\n3871 5552 7\n1 0 1\n4470 2543 8\n68 72 20\n67 2 3\n9620 7615 6\n10 1 18\n33 10 50\n12786 5670 0\n7390 1112 5\n78 92 77\n10000 11000 2\n",
+      "12\n7261 6980 13\n10 14 60\n7098 5552 7\n10001 2 1\n78 17 23\n1 1 69\n4470 2607 6\n68 136 20\n9620 4981 6\n78 28 33\n8928 5670 0\n78 92 69\n",
+      "7\n1 2 00001\n10000 01000 2\n7261 6980 21\n2 14 60\n5099 5552 7\n10001 2 0\n1 1 19\n"
+    ],
+    "output": [
+      "219441\n0\n731618\n582642\n224269\n0\n0\n432827\n990000\n20\n1631\n99\n",
+      "40008\n0\n541409\n393339\n999999\n0\n228447\n0\n0\n0\n99\n17\n",
+      "0\n2\n0\n771004\n121706\n0\n0\n717013\n2\n9\n75290\n248635\n",
+      "336578\n700603\n0\n374233\n7\n185068\n578766\n76768\n0\n164369\n1636\n100\n",
+      "76482\n772651\n778769\n999998\n199495\n15\n98\n20\n29\n1\n105955\n715261\n",
+      "47\n75747\n161676\n560387\n1308\n624331\n8\n17754\n153645\n71285\n164173\n2662\n",
+      "99\n141029\n778781\n775597\n137236\n72\n31\n144656\n794486\n3\n93\n2471\n",
+      "267331\n2\n22\n85952\n10319\n311890\n108678\n17\n162751\n2663\n38378\n591164\n",
+      "573535\n42695\n105\n49\n11\n147139\n5\n0\n0\n0\n0\n0\n",
+      "0\n1\n0\n0\n1\n0\n1\n7\n0\n0\n0\n0\n",
+      "0\n0\n0\n99\n1\n0\n0\n0\n0\n0\n0\n0\n",
+      "0\n0\n0\n0\n0\n0\n0\n"
+    ]
+  },
+  "generated_tests": {
+    "input": [],
+    "output": []
+  }
+}

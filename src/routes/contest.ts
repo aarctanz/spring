@@ -21,7 +21,8 @@ export const contestRoutes = new Elysia({ prefix: "/contests" })
         return { error: "Contest not found" };
       }
       const problems = await problemService.getProblemsByContest(contest.id);
-      return { ...contest, problems };
+      const { id: _, ...rest } = contest;
+      return { ...rest, problems };
     },
     {
       params: t.Object({ contestNumber: t.Number() }),
