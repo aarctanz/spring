@@ -8,6 +8,7 @@ import { cors } from "./middleware/cors";
 import { contestRoutes } from "./routes/contest";
 import { problemsetRoutes } from "./routes/problemset";
 import { languageRoutes } from "./routes/language";
+import { runRoutes } from "./routes/run";
 
 await setupLogger();
 
@@ -50,6 +51,7 @@ const app = new Elysia()
   .use(contestRoutes)
   .use(problemsetRoutes)
   .use(languageRoutes)
+  .use(runRoutes)
   .get("/", () => "Hello Elysia")
   .listen(Number(process.env.PORT ?? 3000));
 

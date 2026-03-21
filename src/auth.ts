@@ -19,6 +19,7 @@ export const auth = betterAuth({
   }),
   basePath: "/auth",
   baseURL: process.env.APP_BASE_URL,
+  trustedOrigins: [process.env.ALLOWED_ORIGIN ?? "http://localhost:5173"],
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID!,
