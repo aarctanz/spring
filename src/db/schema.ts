@@ -9,6 +9,7 @@ import {
   uniqueIndex,
   index,
   integer,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -154,6 +155,27 @@ export const problem = pgTable(
   (table) => [
     uniqueIndex("problem_contest_label_idx").on(table.contestId, table.label),
     index("problem_contest_id_idx").on(table.contestId),
+  ]
+);
+
+export const tag = pgTable("tag", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull().unique(),
+});
+
+export const problemTag = pgTable(
+  "problem_tag",
+  {
+    problemId: uuid("problem_id")
+      .notNull()
+      .references(() => problem.id),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => tag.id),
+  },
+  (table) => [
+    primaryKey({ columns: [table.problemId, table.tagId] }),
+    index("problem_tag_problem_id_idx").on(table.problemId),
   ]
 );
 
