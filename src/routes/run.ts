@@ -1,7 +1,8 @@
 import { Elysia, t } from "elysia";
+import { authPlugin } from "../auth";
 import { runAgainstSamples, RunError } from "../services/run";
 
-export const runRoutes = new Elysia().post(
+export const runRoutes = new Elysia().use(authPlugin).post(
   "/run",
   async ({ body, set }) => {
     try {

@@ -1,7 +1,8 @@
 import { Elysia, t } from "elysia";
+import { authPlugin } from "../auth";
 import { createSubmission, SubmitError } from "../services/submit";
 
-export const submitRoutes = new Elysia().post(
+export const submitRoutes = new Elysia().use(authPlugin).post(
   "/submit",
   async ({ body, user, set }) => {
     try {

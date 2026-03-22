@@ -1,6 +1,6 @@
-import { eq, lte, desc, asc, and } from "drizzle-orm";
+import { eq, lte, desc, asc, and, inArray } from "drizzle-orm";
 import { db } from "../db";
-import { problem, testCase, problemTag, tag } from "../db/schema";
+import { problem, testCase, problemTag, tag, userProblemSolved } from "../db/schema";
 
 const problemColumns = {
   slug: problem.slug,
@@ -29,22 +29,41 @@ async function getTagsForProblem(problemId: string) {
   return rows.map((r) => r.name);
 }
 
-export async function getVisibleProblems() {
+async function getSolvedSet(userId: string | null, problemIds: string[]): Promise<Set<string>> {
+  if (!userId || problemIds.length === 0) return new Set();
+  const rows = await db
+    .select({ problemId: userProblemSolved.problemId })
+    .from(userProblemSolved)
+    .where(
+      and(
+        eq(userProblemSolved.userId, userId),
+        inArray(userProblemSolved.problemId, problemIds)
+      )
+    );
+  return new Set(rows.map((r) => r.problemId));
+}
+
+export async function getVisibleProblems(userId: string | null = null) {
   const rows = await db
     .select({ id: problem.id, ...problemColumns })
     .from(problem)
     .where(lte(problem.visibleFrom, new Date()))
     .orderBy(desc(problem.visibleFrom));
 
+  const [solvedSet] = await Promise.all([
+    getSolvedSet(userId, rows.map((r) => r.id)),
+  ]);
+
   return Promise.all(
     rows.map(async ({ id, ...rest }) => ({
       ...rest,
+      solved: solvedSet.has(id),
       tags: await getTagsForProblem(id),
     }))
   );
 }
 
-export async function getProblemBySlug(slug: string) {
+export async function getProblemBySlug(slug: string, userId: string | null = null) {
   const [row] = await db
     .select({ id: problem.id, ...problemColumns })
     .from(problem)
@@ -54,7 +73,7 @@ export async function getProblemBySlug(slug: string) {
 
   if (row.visibleFrom && row.visibleFrom > new Date()) return null;
 
-  const [sampleTestCases, tags] = await Promise.all([
+  const [sampleTestCases, tags, solvedSet] = await Promise.all([
     db
       .select(testCaseColumns)
       .from(testCase)
@@ -63,22 +82,26 @@ export async function getProblemBySlug(slug: string) {
       )
       .orderBy(asc(testCase.order)),
     getTagsForProblem(row.id),
+    getSolvedSet(userId, [row.id]),
   ]);
 
   const { id: _, ...rest } = row;
-  return { ...rest, tags, testCases: sampleTestCases };
+  return { ...rest, solved: solvedSet.has(row.id), tags, testCases: sampleTestCases };
 }
 
-export async function getProblemsByContest(contestId: string) {
+export async function getProblemsByContest(contestId: string, userId: string | null = null) {
   const rows = await db
     .select({ id: problem.id, ...problemColumns })
     .from(problem)
     .where(eq(problem.contestId, contestId))
     .orderBy(problem.label);
 
+  const solvedSet = await getSolvedSet(userId, rows.map((r) => r.id));
+
   return Promise.all(
     rows.map(async ({ id, ...rest }) => ({
       ...rest,
+      solved: solvedSet.has(id),
       tags: await getTagsForProblem(id),
     }))
   );

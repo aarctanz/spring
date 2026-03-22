@@ -43,6 +43,13 @@
       "when": 1774097080828,
       "tag": "0005_black_maximus",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1774167353730,
+      "tag": "0006_tense_sersi",
+      "breakpoints": true
     }
   ]
 }

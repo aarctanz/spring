@@ -3,10 +3,12 @@ import { getLogger } from "@logtape/logtape";
 import { db } from "../db";
 import {
   problem,
+  contest,
   testCase,
   language,
   submission,
   submissionTestResult,
+  userProblemSolved,
 } from "../db/schema";
 import * as exec0 from "../lib/exec0";
 
@@ -40,21 +42,30 @@ export async function createSubmission(
     .limit(1);
   if (!lang) throw new SubmitError(400, "Invalid or inactive language");
 
-  // Fetch problem
+  // Fetch problem + contest window
   const [prob] = await db
     .select({
       id: problem.id,
+      contestId: problem.contestId,
       score: problem.score,
       timeLimitMs: problem.timeLimitMs,
       memoryLimitMb: problem.memoryLimitMb,
       visibleFrom: problem.visibleFrom,
+      contestStart: contest.startTime,
+      contestEnd: contest.endTime,
     })
     .from(problem)
+    .innerJoin(contest, eq(problem.contestId, contest.id))
     .where(eq(problem.slug, slug))
     .limit(1);
   if (!prob) throw new SubmitError(404, "Problem not found");
   if (prob.visibleFrom && prob.visibleFrom > new Date())
     throw new SubmitError(404, "Problem not found");
+
+  // Tag as contest submission if within contest window
+  const now = new Date();
+  const isContestSubmission =
+    now >= prob.contestStart && now <= prob.contestEnd;
 
   // Fetch ALL test cases
   const allTestCases = await db
@@ -72,6 +83,7 @@ export async function createSubmission(
     .values({
       userId,
       problemId: prob.id,
+      contestId: isContestSubmission ? prob.contestId : null,
       engineLanguageId,
       sourceCode,
       status: "pending",
@@ -98,7 +110,7 @@ export async function createSubmission(
     .where(eq(submission.id, sub.id));
 
   // Background poll — fire and forget
-  pollAndSave(sub.id, exec0Id, prob.score).catch(async (err) => {
+  pollAndSave(sub.id, exec0Id, prob.score, userId, prob.id).catch(async (err) => {
     logger.error`failed to poll submission ${sub.id}: ${err instanceof Error ? err.message : err}`;
     await db
       .update(submission)
@@ -112,7 +124,9 @@ export async function createSubmission(
 async function pollAndSave(
   submissionId: string,
   exec0Id: number,
-  problemScore: number
+  problemScore: number,
+  userId: string,
+  problemId: string,
 ) {
   const result = await exec0.pollSubmission(exec0Id);
 
@@ -146,6 +160,14 @@ async function pollAndSave(
       compileOutput: result.compile_output || null,
     })
     .where(eq(submission.id, submissionId));
+
+  // Mark problem as solved on first AC
+  if (result.status === "accepted") {
+    await db
+      .insert(userProblemSolved)
+      .values({ userId, problemId })
+      .onConflictDoNothing();
+  }
 
   logger.info`submission ${submissionId} completed: ${result.status} (score: ${score})`;
 }

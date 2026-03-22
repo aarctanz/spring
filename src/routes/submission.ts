@@ -1,7 +1,9 @@
 import { Elysia, t } from "elysia";
+import { authPlugin } from "../auth";
 import * as submissionService from "../services/submission";
 
 export const submissionRoutes = new Elysia({ prefix: "/submissions" })
+  .use(authPlugin)
 
   // List current user's submissions
   .get(

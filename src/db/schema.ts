@@ -202,6 +202,22 @@ export const submissionStatusEnum = pgEnum("submission_status", [
   "internal_error",
 ]);
 
+export const userProblemSolved = pgTable(
+  "user_problem_solved",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id),
+    problemId: uuid("problem_id")
+      .notNull()
+      .references(() => problem.id),
+    solvedAt: timestamp("solved_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.problemId] }),
+  ]
+);
+
 export const submission = pgTable(
   "submission",
   {
@@ -212,6 +228,7 @@ export const submission = pgTable(
     problemId: uuid("problem_id")
       .notNull()
       .references(() => problem.id),
+    contestId: uuid("contest_id").references(() => contest.id),
     engineLanguageId: integer("engine_language_id").notNull(),
     sourceCode: text("source_code").notNull(),
     exec0Id: integer("exec0_id"),
