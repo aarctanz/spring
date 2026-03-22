@@ -1,6 +1,9 @@
 import { Elysia, t } from "elysia";
+import { getLogger } from "@logtape/logtape";
 import { authPlugin } from "../auth";
 import { runAgainstSamples, RunError } from "../services/run";
+
+const logger = getLogger(["spring", "run"]);
 
 export const runRoutes = new Elysia().use(authPlugin).post(
   "/run",
@@ -16,6 +19,8 @@ export const runRoutes = new Elysia().use(authPlugin).post(
         set.status = err.statusCode;
         return { error: err.message };
       }
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      logger.error`/run failed: ${msg}`;
       set.status = 500;
       return { error: "Code execution failed. Please try again." };
     }
