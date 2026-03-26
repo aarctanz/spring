@@ -1,6 +1,6 @@
-import { eq, desc, asc, sql, and, count } from "drizzle-orm";
+import { eq, desc, asc, sql, and, count, lte, inArray } from "drizzle-orm";
 import { db } from "../db";
-import { contest, submission, problem, user, leaderboardEntry } from "../db/schema";
+import { contest, submission, problem, user, leaderboardEntry, problemTag, tag, userProblemSolved } from "../db/schema";
 
 const WRONG_ATTEMPT_PENALTY = 50;
 const DEFAULT_PAGE_SIZE = 50;
@@ -27,6 +27,75 @@ export async function getContestByNumber(contestNumber: number) {
     .where(eq(contest.contestNumber, contestNumber))
     .limit(1);
   return row ?? null;
+}
+
+export async function getContestWithProblems(contestNumber: number, userId: string | null = null) {
+  const c = await getContestByNumber(contestNumber);
+  if (!c) return null;
+
+  const problemRows = await db
+    .select({
+      id: problem.id,
+      slug: problem.slug,
+      label: problem.label,
+      title: problem.title,
+      difficulty: problem.difficulty,
+      score: problem.score,
+    })
+    .from(problem)
+    .where(and(eq(problem.contestId, c.id), lte(problem.visibleFrom, new Date())))
+    .orderBy(problem.label);
+
+  const { id: _, ...contestRest } = c;
+
+  if (new Date() < c.startTime) {
+    return { ...contestRest, problems: [] };
+  }
+
+  if (problemRows.length === 0) {
+    return { ...contestRest, problems: [] };
+  }
+
+  const problemIds = problemRows.map(p => p.id);
+
+  const [tagsRows, solvedRows] = await Promise.all([
+    db
+      .select({ problemId: problemTag.problemId, name: tag.name })
+      .from(problemTag)
+      .innerJoin(tag, eq(problemTag.tagId, tag.id))
+      .where(inArray(problemTag.problemId, problemIds)),
+    userId
+      ? db
+          .select({ problemId: userProblemSolved.problemId })
+          .from(userProblemSolved)
+          .where(and(eq(userProblemSolved.userId, userId), inArray(userProblemSolved.problemId, problemIds)))
+      : Promise.resolve([]),
+  ]);
+
+  const tagsMap = new Map<string, string[]>();
+  for (const row of tagsRows) {
+    const existing = tagsMap.get(row.problemId) ?? [];
+    existing.push(row.name);
+    tagsMap.set(row.problemId, existing);
+  }
+
+  const solvedSet = new Set((solvedRows as { problemId: string }[]).map(r => r.problemId));
+
+  function difficultyLabel(d: number | null): string {
+    if (d === null || d <= 4) return "easy";
+    if (d <= 8) return "medium";
+    return "hard";
+  }
+
+  return {
+    ...contestRest,
+    problems: problemRows.map(({ id, difficulty, ...p }) => ({
+      ...p,
+      difficulty: difficultyLabel(difficulty),
+      solved: solvedSet.has(id),
+      tags: tagsMap.get(id) ?? [],
+    })),
+  };
 }
 
 const leaderboardColumns = {

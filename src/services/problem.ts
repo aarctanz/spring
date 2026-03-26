@@ -1,6 +1,6 @@
 import { eq, lte, desc, asc, and, inArray } from "drizzle-orm";
 import { db } from "../db";
-import { problem, testCase, problemTag, tag, userProblemSolved } from "../db/schema";
+import { problem, testCase, problemTag, tag, userProblemSolved, contest } from "../db/schema";
 
 function difficultyLabel(d: number | null): string {
   if (d === null) return "easy";
@@ -51,10 +51,12 @@ async function getSolvedSet(userId: string | null, problemIds: string[]): Promis
 }
 
 export async function getVisibleProblems(userId: string | null = null) {
+  const now = new Date();
   const rows = await db
     .select({ id: problem.id, ...problemColumns })
     .from(problem)
-    .where(lte(problem.visibleFrom, new Date()))
+    .innerJoin(contest, eq(problem.contestId, contest.id))
+    .where(and(lte(problem.visibleFrom, now), lte(contest.startTime, now)))
     .orderBy(desc(problem.visibleFrom));
 
   const [solvedSet] = await Promise.all([
@@ -73,13 +75,21 @@ export async function getVisibleProblems(userId: string | null = null) {
 
 export async function getProblemBySlug(slug: string, userId: string | null = null) {
   const [row] = await db
-    .select({ id: problem.id, ...problemColumns })
+    .select({ id: problem.id, contestId: problem.contestId, ...problemColumns })
     .from(problem)
     .where(eq(problem.slug, slug))
     .limit(1);
   if (!row) return null;
 
-  if (row.visibleFrom && row.visibleFrom > new Date()) return null;
+  const now = new Date();
+  if (row.visibleFrom && row.visibleFrom > now) return null;
+
+  const [c] = await db
+    .select({ startTime: contest.startTime })
+    .from(contest)
+    .where(eq(contest.id, row.contestId))
+    .limit(1);
+  if (!c || c.startTime > now) return null;
 
   const [sampleTestCases, tags, solvedSet] = await Promise.all([
     db
@@ -93,15 +103,19 @@ export async function getProblemBySlug(slug: string, userId: string | null = nul
     getSolvedSet(userId, [row.id]),
   ]);
 
-  const { id: _, difficulty, ...rest } = row;
+  const { id: _, contestId: __, difficulty, ...rest } = row;
   return { ...rest, difficulty: difficultyLabel(difficulty), solved: solvedSet.has(row.id), tags, testCases: sampleTestCases };
 }
 
-export async function getProblemsByContest(contestId: string, userId: string | null = null) {
+export async function getProblemsByContest(contestId: string, userId: string | null = null, includeHidden = false) {
   const rows = await db
     .select({ id: problem.id, ...problemColumns })
     .from(problem)
-    .where(eq(problem.contestId, contestId))
+    .where(
+      includeHidden
+        ? eq(problem.contestId, contestId)
+        : and(eq(problem.contestId, contestId), lte(problem.visibleFrom, new Date()))
+    )
     .orderBy(problem.label);
 
   const solvedSet = await getSolvedSet(userId, rows.map((r) => r.id));

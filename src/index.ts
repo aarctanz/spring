@@ -29,7 +29,7 @@ const app = new Elysia()
     openapi({
       documentation: {
         info: {
-          title: "Spring API",
+          title: "Codespardha API",
           version: "1.0.0",
           description: "Placement helper system API for NIT Kurukshetra",
         },

@@ -25,13 +25,13 @@ cp .env.example .env
 | `DATABASE_URL` | Used by app in local dev only — Docker overrides this | `postgres://spring:spring@localhost:5433/spring` |
 | `PORT` | Port the API listens on | `3001` |
 | `NODE_ENV` | Set to `production` for deployment | `production` |
-| `APP_BASE_URL` | Public URL of the API (used by Better Auth for OAuth redirects) | `https://api.spring.nitkkr.ac.in` |
+| `APP_BASE_URL` | Public URL of the API (used by Better Auth for OAuth redirects) | `https://api.codespardha.me` |
 | `GOOGLE_CLIENT_ID` | From Google Cloud Console → APIs & Services → Credentials | `xxxx.apps.googleusercontent.com` |
 | `GOOGLE_CLIENT_SECRET` | From Google Cloud Console | `GOCSPX-xxxx` |
 | `GOOGLE_ALLOWED_HD` | Google Workspace domain to restrict sign-ups | `nitkkr.ac.in` |
 | `BETTER_AUTH_SECRET` | Session signing secret — minimum 32 random characters | Generate with `openssl rand -base64 32` |
-| `FRONTEND_URL` | Frontend app URL | `https://spring.nitkkr.ac.in` |
-| `ALLOWED_ORIGIN` | CORS origin for frontend — must match `FRONTEND_URL` exactly | `https://spring.nitkkr.ac.in` |
+| `FRONTEND_URL` | Frontend app URL | `https://contest.codespardha.me` |
+| `ALLOWED_ORIGIN` | CORS origin for frontend — must match `FRONTEND_URL` exactly | `https://contest.codespardha.me` |
 | `ENGINE_URL` | exec0 API URL — use Docker container name since spring joins exec0's network | `http://exec0-exec0-api-1:8080` |
 
 ### Google OAuth Setup

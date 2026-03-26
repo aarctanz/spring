@@ -1,7 +1,6 @@
 import { Elysia, t } from "elysia";
 import { authPlugin } from "../auth";
 import * as contestService from "../services/contest";
-import * as problemService from "../services/problem";
 
 export const contestRoutes = new Elysia({ prefix: "/contests" })
   .use(authPlugin)
@@ -15,19 +14,15 @@ export const contestRoutes = new Elysia({ prefix: "/contests" })
   .get(
     "/:contestNumber",
     async ({ params, set, user }) => {
-      const contest = await contestService.getContestByNumber(
-        params.contestNumber
+      const result = await contestService.getContestWithProblems(
+        params.contestNumber,
+        user?.id ?? null
       );
-      if (!contest) {
+      if (!result) {
         set.status = 404;
         return { error: "Contest not found" };
       }
-      const problems = await problemService.getProblemsByContest(
-        contest.id,
-        user?.id ?? null
-      );
-      const { id: _, ...rest } = contest;
-      return { ...rest, problems };
+      return result;
     },
     {
       auth: true,

@@ -38,8 +38,8 @@ async function seed() {
   const [createdContest] = await db
     .insert(contest)
     .values({
-      title: "Spring Contest #1",
-      description: "First practice contest on Spring platform.",
+      title: "Codespardha Contest #1",
+      description: "First practice contest on Codespardha platform.",
       startTime,
       endTime,
     })
