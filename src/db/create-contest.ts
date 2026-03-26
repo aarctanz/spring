@@ -49,87 +49,90 @@ async function createContest(contestDir: string) {
 
   logger.info`found ${problemFiles.length} problems: ${problemFiles.join(", ")}`;
 
-  // Insert contest
-  const [createdContest] = await db
-    .insert(contest)
-    .values({
-      title: contestData.title,
-      description: contestData.description,
-      startTime,
-      endTime,
-    })
-    .returning({ id: contest.id, contestNumber: contest.contestNumber });
-
-  logger.info`created contest #${createdContest.contestNumber}: "${contestData.title}"`;
-  logger.info`  start: ${startTime.toISOString()}`;
-  logger.info`  end:   ${endTime.toISOString()} (${contestData.durationMinutes} min)`;
-
-  // Insert problems
-  for (const file of problemFiles) {
-    const label = file.replace(".json", "").toUpperCase();
-    const data: ProblemData = JSON.parse(readFileSync(resolve(dir, file), "utf-8"));
-
-    const slug = `${createdContest.contestNumber}${label}`;
-
-    const [createdProblem] = await db
-      .insert(problem)
+  // Insert contest + problems in a transaction
+  const result = await db.transaction(async (tx) => {
+    const [createdContest] = await tx
+      .insert(contest)
       .values({
-        contestId: createdContest.id,
-        label,
-        slug,
-        title: data.title,
-        description: data.description,
-        difficulty: data.difficulty,
-        score: data.score,
-        visibleFrom: startTime,
-        timeLimitMs: data.timeLimitMs ?? 1000,
-        memoryLimitMb: data.memoryLimitMb ?? 256,
+        title: contestData.title,
+        description: contestData.description,
+        startTime,
+        endTime,
       })
-      .returning({ id: problem.id });
+      .returning({ id: contest.id, contestNumber: contest.contestNumber });
 
-    // Insert test cases
-    const testCases: (typeof testCase.$inferInsert)[] = [];
-    let order = 0;
+    logger.info`created contest #${createdContest.contestNumber}: "${contestData.title}"`;
+    logger.info`  start: ${startTime.toISOString()}`;
+    logger.info`  end:   ${endTime.toISOString()} (${contestData.durationMinutes} min)`;
 
-    for (const tc of data.publicTests) {
-      testCases.push({
-        problemId: createdProblem.id,
-        input: tc.input,
-        expectedOutput: tc.output,
-        isSample: true,
-        order: order++,
-      });
+    for (const file of problemFiles) {
+      const label = file.replace(".json", "").toUpperCase();
+      const data: ProblemData = JSON.parse(readFileSync(resolve(dir, file), "utf-8"));
+
+      const slug = `${createdContest.contestNumber}${label}`;
+
+      const [createdProblem] = await tx
+        .insert(problem)
+        .values({
+          contestId: createdContest.id,
+          label,
+          slug,
+          title: data.title,
+          description: data.description,
+          difficulty: data.difficulty,
+          score: data.score,
+          visibleFrom: startTime,
+          timeLimitMs: data.timeLimitMs ?? 1000,
+          memoryLimitMb: data.memoryLimitMb ?? 256,
+        })
+        .returning({ id: problem.id });
+
+      // Insert test cases
+      const testCases: (typeof testCase.$inferInsert)[] = [];
+      let order = 0;
+
+      for (const tc of data.publicTests) {
+        testCases.push({
+          problemId: createdProblem.id,
+          input: tc.input,
+          expectedOutput: tc.output,
+          isSample: true,
+          order: order++,
+        });
+      }
+
+      for (const tc of data.privateTests) {
+        testCases.push({
+          problemId: createdProblem.id,
+          input: tc.input,
+          expectedOutput: tc.output,
+          isSample: false,
+          order: order++,
+        });
+      }
+
+      await tx.insert(testCase).values(testCases);
+
+      // Insert tags
+      for (const tagName of data.tags ?? []) {
+        const [t] = await tx
+          .insert(tag)
+          .values({ name: tagName })
+          .onConflictDoNothing()
+          .returning({ id: tag.id });
+        const tagId =
+          t?.id ??
+          (await tx.select({ id: tag.id }).from(tag).where(eq(tag.name, tagName)).limit(1))[0].id;
+        await tx.insert(problemTag).values({ problemId: createdProblem.id, tagId });
+      }
+
+      logger.info`  ${slug} (${label}): "${data.title}" — ${data.score}pts, ${testCases.length} tests, ${data.tags?.length ?? 0} tags`;
     }
 
-    for (const tc of data.privateTests) {
-      testCases.push({
-        problemId: createdProblem.id,
-        input: tc.input,
-        expectedOutput: tc.output,
-        isSample: false,
-        order: order++,
-      });
-    }
+    return createdContest;
+  });
 
-    await db.insert(testCase).values(testCases);
-
-    // Insert tags
-    for (const tagName of data.tags ?? []) {
-      const [t] = await db
-        .insert(tag)
-        .values({ name: tagName })
-        .onConflictDoNothing()
-        .returning({ id: tag.id });
-      const tagId =
-        t?.id ??
-        (await db.select({ id: tag.id }).from(tag).where(eq(tag.name, tagName)).limit(1))[0].id;
-      await db.insert(problemTag).values({ problemId: createdProblem.id, tagId });
-    }
-
-    logger.info`  ${slug} (${label}): "${data.title}" — ${data.score}pts, ${testCases.length} tests, ${data.tags?.length ?? 0} tags`;
-  }
-
-  logger.info`done! contest #${createdContest.contestNumber} created with ${problemFiles.length} problems`;
+  logger.info`done! contest #${result.contestNumber} created with ${problemFiles.length} problems`;
 }
 
 const contestDir = process.argv[2];

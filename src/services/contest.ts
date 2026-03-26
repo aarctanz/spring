@@ -81,17 +81,10 @@ export async function getContestWithProblems(contestNumber: number, userId: stri
 
   const solvedSet = new Set((solvedRows as { problemId: string }[]).map(r => r.problemId));
 
-  function difficultyLabel(d: number | null): string {
-    if (d === null || d <= 4) return "easy";
-    if (d <= 8) return "medium";
-    return "hard";
-  }
-
   return {
     ...contestRest,
-    problems: problemRows.map(({ id, difficulty, ...p }) => ({
+    problems: problemRows.map(({ id, ...p }) => ({
       ...p,
-      difficulty: difficultyLabel(difficulty),
       solved: solvedSet.has(id),
       tags: tagsMap.get(id) ?? [],
     })),

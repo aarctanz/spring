@@ -1,13 +1,13 @@
 services:
   db:
-    image: postgres:18-alpine
+    image: postgres:18.3-bookworm
     env_file: .env
     environment:
       POSTGRES_USER: ${PGUSER:-spring}
       POSTGRES_PASSWORD: ${PGPASSWORD:-spring}
       POSTGRES_DB: ${PGDATABASE:-spring}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/18/docker
     restart: unless-stopped
     healthcheck:
       test:
