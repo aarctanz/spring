@@ -24,11 +24,142 @@ interface ProblemData {
   privateTests: { input: string; output: string }[];
 }
 
-async function createContest(contestDir: string) {
-  await setupLogger();
+function parseArgs() {
+  const args = process.argv.slice(2);
+  let dir: string | null = null;
+  let contestOnly = false;
+  let contestNumber: number | null = null;
 
-  const dir = resolve(contestDir);
-  logger.info`loading contest from ${dir}`;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--contest") {
+      contestOnly = true;
+    } else if (args[i] === "--contestnumber") {
+      contestNumber = parseInt(args[++i]);
+    } else if (!args[i].startsWith("-")) {
+      dir = args[i];
+    }
+  }
+
+  if (!dir) {
+    console.error(
+      "Usage:\n" +
+      "  bun run src/db/create-contest.ts <dir>              # full contest + problems\n" +
+      "  bun run src/db/create-contest.ts <dir> --contest     # contest schedule only\n" +
+      "  bun run src/db/create-contest.ts <dir> --contestnumber <number>  # add problems to existing contest"
+    );
+    process.exit(1);
+  }
+
+  return { dir: resolve(dir), contestOnly, contestNumber };
+}
+
+function loadProblemFiles(dir: string): string[] {
+  return readdirSync(dir)
+    .filter((f) => /^[a-zA-Z]\.json$/.test(f))
+    .sort();
+}
+
+async function insertProblems(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  dir: string,
+  contestId: string,
+  contestNumber: number,
+  startTime: Date,
+  problemFiles: string[],
+) {
+  for (const file of problemFiles) {
+    const label = file.replace(".json", "").toUpperCase();
+    const data: ProblemData = JSON.parse(readFileSync(resolve(dir, file), "utf-8"));
+
+    const slug = `${contestNumber}${label}`;
+
+    const [createdProblem] = await tx
+      .insert(problem)
+      .values({
+        contestId,
+        label,
+        slug,
+        title: data.title,
+        description: data.description,
+        difficulty: data.difficulty,
+        score: data.score,
+        visibleFrom: startTime,
+        timeLimitMs: data.timeLimitMs ?? 1000,
+        memoryLimitMb: data.memoryLimitMb ?? 256,
+      })
+      .returning({ id: problem.id });
+
+    // Insert test cases
+    const testCases: (typeof testCase.$inferInsert)[] = [];
+    let order = 0;
+
+    for (const tc of data.publicTests) {
+      testCases.push({
+        problemId: createdProblem.id,
+        input: tc.input,
+        expectedOutput: tc.output,
+        isSample: true,
+        order: order++,
+      });
+    }
+
+    for (const tc of data.privateTests) {
+      testCases.push({
+        problemId: createdProblem.id,
+        input: tc.input,
+        expectedOutput: tc.output,
+        isSample: false,
+        order: order++,
+      });
+    }
+
+    await tx.insert(testCase).values(testCases);
+
+    // Insert tags
+    for (const tagName of data.tags ?? []) {
+      const [t] = await tx
+        .insert(tag)
+        .values({ name: tagName })
+        .onConflictDoNothing()
+        .returning({ id: tag.id });
+      const tagId =
+        t?.id ??
+        (await tx.select({ id: tag.id }).from(tag).where(eq(tag.name, tagName)).limit(1))[0].id;
+      await tx.insert(problemTag).values({ problemId: createdProblem.id, tagId });
+    }
+
+    logger.info`  ${slug} (${label}): "${data.title}" — ${data.score}pts, ${testCases.length} tests, ${data.tags?.length ?? 0} tags`;
+  }
+}
+
+async function run() {
+  await setupLogger();
+  const { dir, contestOnly, contestNumber: existingContestNumber } = parseArgs();
+
+  logger.info`loading from ${dir}`;
+
+  // Mode: add problems to existing contest
+  if (existingContestNumber) {
+    const [existing] = await db
+      .select({ id: contest.id, contestNumber: contest.contestNumber, startTime: contest.startTime })
+      .from(contest)
+      .where(eq(contest.contestNumber, existingContestNumber))
+      .limit(1);
+
+    if (!existing) throw new Error(`Contest #${existingContestNumber} not found`);
+
+    const problemFiles = loadProblemFiles(dir);
+    if (problemFiles.length === 0) throw new Error("No problem files found (expected a.json, b.json, etc.)");
+
+    logger.info`adding ${problemFiles.length} problems to contest #${existing.contestNumber}`;
+
+    await db.transaction(async (tx) => {
+      await insertProblems(tx, dir, existing.id, existing.contestNumber, existing.startTime, problemFiles);
+    });
+
+    logger.info`done! added ${problemFiles.length} problems to contest #${existing.contestNumber}`;
+    return;
+  }
 
   // Load contest.json
   const contestData: ContestData = JSON.parse(
@@ -38,96 +169,40 @@ async function createContest(contestDir: string) {
   const startTime = new Date(contestData.startTime);
   const endTime = new Date(startTime.getTime() + contestData.durationMinutes * 60 * 1000);
 
-  // Find problem files (a.json, b.json, etc.)
-  const problemFiles = readdirSync(dir)
-    .filter((f) => /^[a-zA-Z]\.json$/.test(f))
-    .sort();
+  // Mode: contest schedule only
+  if (contestOnly) {
+    const [created] = await db
+      .insert(contest)
+      .values({ title: contestData.title, description: contestData.description, startTime, endTime })
+      .returning({ id: contest.id, contestNumber: contest.contestNumber });
 
+    logger.info`created contest #${created.contestNumber}: "${contestData.title}"`;
+    logger.info`  id:    ${created.id}`;
+    logger.info`  start: ${startTime.toISOString()}`;
+    logger.info`  end:   ${endTime.toISOString()} (${contestData.durationMinutes} min)`;
+    logger.info`done! use --contestnumber ${created.contestNumber} to add problems later`;
+    return;
+  }
+
+  // Mode: full contest + problems (default)
+  const problemFiles = loadProblemFiles(dir);
   if (problemFiles.length === 0) {
     throw new Error("No problem files found (expected a.json, b.json, etc.)");
   }
 
   logger.info`found ${problemFiles.length} problems: ${problemFiles.join(", ")}`;
 
-  // Insert contest + problems in a transaction
   const result = await db.transaction(async (tx) => {
     const [createdContest] = await tx
       .insert(contest)
-      .values({
-        title: contestData.title,
-        description: contestData.description,
-        startTime,
-        endTime,
-      })
+      .values({ title: contestData.title, description: contestData.description, startTime, endTime })
       .returning({ id: contest.id, contestNumber: contest.contestNumber });
 
     logger.info`created contest #${createdContest.contestNumber}: "${contestData.title}"`;
     logger.info`  start: ${startTime.toISOString()}`;
     logger.info`  end:   ${endTime.toISOString()} (${contestData.durationMinutes} min)`;
 
-    for (const file of problemFiles) {
-      const label = file.replace(".json", "").toUpperCase();
-      const data: ProblemData = JSON.parse(readFileSync(resolve(dir, file), "utf-8"));
-
-      const slug = `${createdContest.contestNumber}${label}`;
-
-      const [createdProblem] = await tx
-        .insert(problem)
-        .values({
-          contestId: createdContest.id,
-          label,
-          slug,
-          title: data.title,
-          description: data.description,
-          difficulty: data.difficulty,
-          score: data.score,
-          visibleFrom: startTime,
-          timeLimitMs: data.timeLimitMs ?? 1000,
-          memoryLimitMb: data.memoryLimitMb ?? 256,
-        })
-        .returning({ id: problem.id });
-
-      // Insert test cases
-      const testCases: (typeof testCase.$inferInsert)[] = [];
-      let order = 0;
-
-      for (const tc of data.publicTests) {
-        testCases.push({
-          problemId: createdProblem.id,
-          input: tc.input,
-          expectedOutput: tc.output,
-          isSample: true,
-          order: order++,
-        });
-      }
-
-      for (const tc of data.privateTests) {
-        testCases.push({
-          problemId: createdProblem.id,
-          input: tc.input,
-          expectedOutput: tc.output,
-          isSample: false,
-          order: order++,
-        });
-      }
-
-      await tx.insert(testCase).values(testCases);
-
-      // Insert tags
-      for (const tagName of data.tags ?? []) {
-        const [t] = await tx
-          .insert(tag)
-          .values({ name: tagName })
-          .onConflictDoNothing()
-          .returning({ id: tag.id });
-        const tagId =
-          t?.id ??
-          (await tx.select({ id: tag.id }).from(tag).where(eq(tag.name, tagName)).limit(1))[0].id;
-        await tx.insert(problemTag).values({ problemId: createdProblem.id, tagId });
-      }
-
-      logger.info`  ${slug} (${label}): "${data.title}" — ${data.score}pts, ${testCases.length} tests, ${data.tags?.length ?? 0} tags`;
-    }
+    await insertProblems(tx, dir, createdContest.id, createdContest.contestNumber, startTime, problemFiles);
 
     return createdContest;
   });
@@ -135,13 +210,7 @@ async function createContest(contestDir: string) {
   logger.info`done! contest #${result.contestNumber} created with ${problemFiles.length} problems`;
 }
 
-const contestDir = process.argv[2];
-if (!contestDir) {
-  console.error("Usage: bun run src/db/create-contest.ts <contest-directory>");
-  process.exit(1);
-}
-
-createContest(contestDir)
+run()
   .catch((err) => {
     logger.error`failed: ${err instanceof Error ? err.message : err}`;
     process.exit(1);

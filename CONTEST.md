@@ -77,14 +77,29 @@ Name files `a.json`, `b.json`, `c.json`, etc. They are sorted alphabetically and
 
 ## Running the Script
 
-### Locally (with Docker)
+### Full contest (default)
+
+Creates the contest and inserts all problems in one transaction.
 
 ```bash
-# Copy contest directory into the container
 docker cp ./my-contest spring-spring-1:/tmp/my-contest
-
-# Run the script
 docker exec spring-spring-1 bun run /app/src/db/create-contest.ts /tmp/my-contest
+```
+
+### Contest schedule only (`--contest`)
+
+Creates just the contest schedule. Problems can be added later. Returns the contest ID.
+
+```bash
+docker exec spring-spring-1 bun run /app/src/db/create-contest.ts /tmp/my-contest --contest
+```
+
+### Add problems to existing contest (`--contestnumber`)
+
+Adds problems from the directory to an existing contest by number.
+
+```bash
+docker exec spring-spring-1 bun run /app/src/db/create-contest.ts /tmp/my-contest --contestnumber 1003
 ```
 
 ### On the server
