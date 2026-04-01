@@ -12,6 +12,10 @@ interface ContestData {
   durationMinutes: number;
 }
 
+type TestCaseList =
+  | { input: string; output: string }[]
+  | { input: string[]; output: string[] };
+
 interface ProblemData {
   title: string;
   description: string;
@@ -20,8 +24,13 @@ interface ProblemData {
   timeLimitMs?: number;
   memoryLimitMb?: number;
   tags?: string[];
-  publicTests: { input: string; output: string }[];
-  privateTests: { input: string; output: string }[];
+  publicTests: TestCaseList;
+  privateTests: TestCaseList;
+}
+
+function normalizeTests(tests: TestCaseList): { input: string; output: string }[] {
+  if (Array.isArray(tests)) return tests;
+  return tests.input.map((input, i) => ({ input, output: tests.output[i] }));
 }
 
 function parseArgs() {
@@ -93,7 +102,7 @@ async function insertProblems(
     const testCases: (typeof testCase.$inferInsert)[] = [];
     let order = 0;
 
-    for (const tc of data.publicTests) {
+    for (const tc of normalizeTests(data.publicTests)) {
       testCases.push({
         problemId: createdProblem.id,
         input: tc.input,
@@ -103,7 +112,7 @@ async function insertProblems(
       });
     }
 
-    for (const tc of data.privateTests) {
+    for (const tc of normalizeTests(data.privateTests)) {
       testCases.push({
         problemId: createdProblem.id,
         input: tc.input,

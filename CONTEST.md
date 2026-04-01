@@ -61,17 +61,26 @@ Name files `a.json`, `b.json`, `c.json`, etc. They are sorted alphabetically and
 }
 ```
 
-| Field           | Type     | Required | Description                                      |
-|-----------------|----------|----------|--------------------------------------------------|
-| `title`         | string   | yes      | Problem title                                    |
-| `description`   | string   | yes      | Full statement in markdown, supports LaTeX `$x$` |
-| `difficulty`    | number   | yes      | 1–4 easy, 5–8 medium, 9–10 hard                  |
-| `score`         | number   | yes      | Points awarded on AC (e.g. 500, 1000, 1500)      |
-| `timeLimitMs`   | number   | no       | Time limit in ms (default: 1000)                 |
-| `memoryLimitMb` | number   | no       | Memory limit in MB (default: 256)                |
-| `tags`          | string[] | no       | Topic tags                                       |
-| `publicTests`   | array    | yes      | Sample test cases shown to students              |
-| `privateTests`  | array    | yes      | Hidden test cases used for judging               |
+`publicTests` and `privateTests` also accept a batch format where inputs and outputs are separate arrays (paired by index):
+
+```json
+"publicTests": {
+  "input": ["5\n", "3\n"],
+  "output": ["YES\n", "NO\n"]
+}
+```
+
+| Field           | Type            | Required | Description                                      |
+|-----------------|-----------------|----------|--------------------------------------------------|
+| `title`         | string          | yes      | Problem title                                    |
+| `description`   | string          | yes      | Full statement in markdown, supports LaTeX `$x$` |
+| `difficulty`    | number          | yes      | 1–4 easy, 5–8 medium, 9–10 hard                  |
+| `score`         | number          | yes      | Points awarded on AC (e.g. 500, 1000, 1500)      |
+| `timeLimitMs`   | number          | no       | Time limit in ms (default: 1000)                 |
+| `memoryLimitMb` | number          | no       | Memory limit in MB (default: 256)                |
+| `tags`          | string[]        | no       | Topic tags — **no duplicates**                   |
+| `publicTests`   | array or object | yes      | Sample test cases shown to students              |
+| `privateTests`  | array or object | yes      | Hidden test cases used for judging               |
 
 ---
 
